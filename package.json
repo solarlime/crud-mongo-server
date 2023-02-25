@@ -5,7 +5,7 @@
   "main": "server.ts",
   "scripts": {
     "start": "yarn run build && node dist/server.js",
-    "build": "eslint . && tsc",
+    "build": "yarn run eslint . && tsc",
     "watch": "nodemon server.ts"
   },
   "keywords": [],
