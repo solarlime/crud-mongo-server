@@ -54,6 +54,67 @@ const port = process.env.PORT!;
 const mongoUrl = process.env.MONGO_URL!;
 const client = new MongoClient(mongoUrl);
 
+const switcher = async (
+  col: Collection,
+  actions: Types.Actions,
+  document: Types.HelpDesk.HelpDesk | Types.LikeATrello.LikeATrello,
+  // eslint-disable-next-line consistent-return
+) => {
+  switch (actions) {
+    case 'new': {
+      await col.insertOne(document);
+      return { status: 'Added', data: '' };
+    }
+    case 'update': {
+      if ('done' in document) {
+        // Help desk hot update
+        await col.updateOne({ id: document.id }, { $set: { done: document.done } });
+      } else if ('description' in document) {
+        // Help desk full update
+        await col.updateOne(
+          { id: document.id },
+          { $set: { name: document.name, description: document.description } },
+        );
+      } else if ('files' in document && !('order' in document)) {
+        // Like-a-Trello full update
+        await col.updateOne(
+          { id: document.id },
+          { $set: { name: document.name, files: document.files } },
+        );
+      } else if ('move' in document) {
+        // Like-a-Trello order/column update
+        await Promise.all(document.move.map(async (doc) => col.updateOne(
+          { id: doc.id },
+          { $set: { order: doc.order, column: doc.column } },
+        )));
+      }
+      return { status: 'Updated', data: '' };
+    }
+    case 'delete': {
+      if ('id' in document) {
+        await col.deleteOne({ id: document.id });
+        return { status: 'Removed', data: '' };
+      }
+      break;
+    }
+    case 'fetch': {
+      // eslint-disable-next-line no-case-declarations
+      const data: Array<Document> = await col.find().toArray();
+      return {
+        status: 'Fetched',
+        // DB stores boolean values as strings. It is needed to get them back
+        data: data.map((item) => {
+          const { _id, ...rest } = item;
+          return { ...rest, done: (item.done === 'true') };
+        }),
+      };
+    }
+    default: {
+      throw Error('No action was requested');
+    }
+  }
+};
+
 /**
  * A function which deals with MongoDB: creates documents, updates them,
  * deletes and fetches them all depending on a request url
@@ -74,65 +135,12 @@ const crud = async (
     // Use the collection "items"
     const col: Collection = db.collection('items');
 
-    switch (actions) {
-      case 'new': {
-        await col.insertOne(document);
-        return { status: 'Added', data: '' };
-      }
-      case 'update': {
-        if ('done' in document) {
-          // Help desk hot update
-          await col.updateOne({ id: document.id }, { $set: { done: document.done } });
-        } else if ('description' in document) {
-          // Help desk full update
-          await col.updateOne(
-            { id: document.id },
-            { $set: { name: document.name, description: document.description } },
-          );
-        } else if ('files' in document && !('order' in document)) {
-          // Like-a-Trello full update
-          await col.updateOne(
-            { id: document.id },
-            { $set: { name: document.name, files: document.files } },
-          );
-        } else if ('move' in document) {
-          // Like-a-Trello order/column update
-          await Promise.all(document.move.map(async (doc) => col.updateOne(
-            { id: doc.id },
-            { $set: { order: doc.order, column: doc.column } },
-          )));
-        }
-        return { status: 'Updated', data: '' };
-      }
-      case 'delete': {
-        if ('id' in document) {
-          await col.deleteOne({ id: document.id });
-          return { status: 'Removed', data: '' };
-        }
-        break;
-      }
-      case 'fetch': {
-        // eslint-disable-next-line no-case-declarations
-        const data: Array<Document> = await col.find().toArray();
-        return {
-          status: 'Fetched',
-          // DB stores boolean values as strings. It is needed to get them back
-          data: data.map((item) => {
-            const { _id, ...rest } = item;
-            return { ...rest, done: (item.done === 'true') };
-          }),
-        };
-      }
-      default: {
-        throw Error('Another action was requested');
-      }
-    }
-    throw Error('Switch was not triggered');
+    return await switcher(col, actions, document);
   } catch (err) {
     console.log(err);
     return {
       status: 'Error',
-      data: err,
+      data: (err as Error).message,
     };
   } finally {
     await client.close();
