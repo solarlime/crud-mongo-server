@@ -5,8 +5,10 @@ import {
   Collection, Db, Document, MongoClient,
 } from 'mongodb';
 
+const applications = ['help-desk', 'like-a-trello'] as const;
+
 namespace Types {
-  export type Apps = 'help-desk' | 'like-a-trello';
+  export type Apps = typeof applications[number];
   export type Actions = 'fetch' | 'new' | 'update' | 'delete';
   export type Url<T extends Actions, U extends Apps> = `/database/${U}/${T}`;
 
@@ -149,7 +151,24 @@ const crud = async (
 
 const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
   console.log('Request to %s detected', req.url);
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const [, app, action] = (req.url as Types.Url<Types.Actions, Types.Apps>).slice(1).split('/');
+
+  // Setting Access-Control-Allow-Origin depending on an origin header
+  if (req.headers.origin && applications
+    .flatMap((item) => ([
+      `https://${item}-solarlime.vercel.app`,
+      `https://${item}.solarlime.dev`,
+    ]))
+    .find((item) => item === req.headers.origin)) {
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
+  } else if (req.headers.origin?.includes('http://localhost:')) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  } else {
+    res.writeHead(403);
+    res.end('Forbidden to access this page');
+    return;
+  }
+
   res.setHeader('Access-Control-Allow-Methods', 'OPTIONS, GET, POST, PUT, DELETE');
   res.setHeader('Access-Control-Allow-Headers', 'Cache-Control, Content-Type');
   res.setHeader('Access-Control-Max-Age', 2592000);
@@ -166,8 +185,6 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     const form = formidable({});
     form.use(plugins.json);
     form.parse(req, async (err, fields) => {
-      const [, app, action] = (req.url as Types.Url<Types.Actions, Types.Apps>).slice(1).split('/');
-
       const result = await crud(app as Types.Apps, action as Types.Actions, fields);
 
       res.setHeader('Content-Type', 'application/json');
