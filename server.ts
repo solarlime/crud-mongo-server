@@ -1,5 +1,11 @@
 import { createServer, IncomingMessage, ServerResponse } from 'http';
-import formidable from 'formidable';
+// 24.06.23: types for formidable are not fully compatible with formidable@v3.
+// TypeScript throws an error about json & firstValues. Ignoring it.
+// @ts-ignore
+import formidable, { json } from 'formidable';
+// @ts-ignore
+// eslint-disable-next-line import/extensions
+import { firstValues } from 'formidable/src/helpers/firstValues.js';
 import dotenv from 'dotenv';
 import {
   Collection, Db, Document, MongoClient,
@@ -51,7 +57,6 @@ namespace Types {
 
 dotenv.config();
 
-const { plugins } = formidable;
 const port = process.env.PORT!;
 const mongoUrl = process.env.MONGO_URL!;
 const client = new MongoClient(mongoUrl);
@@ -183,9 +188,10 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 
   if (['get', 'post', 'put', 'delete'].includes(method)) {
     const form = formidable({});
-    form.use(plugins.json);
-    form.parse(req, async (err, fields) => {
-      const result = await crud(app as Types.Apps, action as Types.Actions, fields);
+    form.use(json);
+    form.parse(req, async (err, fieldsMultiple) => {
+      const fieldsSingle = firstValues(form, fieldsMultiple);
+      const result = await crud(app as Types.Apps, action as Types.Actions, fieldsSingle);
 
       res.setHeader('Content-Type', 'application/json');
       res.writeHead(200);
