@@ -194,6 +194,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       const result = await crud(app as Types.Apps, action as Types.Actions, fieldsSingle);
 
       res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'no-cache');
       res.writeHead(200);
       res.end(JSON.stringify(result));
     });
