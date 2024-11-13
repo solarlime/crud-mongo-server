@@ -23,11 +23,14 @@ namespace Types {
     /**
      * Help desk request variants:
      * new: { id, done, name, description, date }
-     * update: { id, done } или { id, name, description }
+     * update: { id, done } или { id[], done[], isBulk } или { id, name, description }
      * delete: { id }
      * get: {}
      */
-    type UpdateHot = { id: string, done: boolean };
+    export type MultipleUpdateHot = {
+      id: Array<string>, done: Array<boolean>, isBulk: Array<true>,
+    };
+    export type UpdateHot = { id: string, done: boolean } | MultipleUpdateHot;
     type UpdateFull = { id: string, name: string, description: string };
     type Update = UpdateHot | UpdateFull;
     type New = UpdateHot & UpdateFull & { date: string };
@@ -75,7 +78,34 @@ const switcher = async (
     case 'update': {
       if ('done' in document) {
         // Help desk hot update
-        await col.updateOne({ id: document.id }, { $set: { done: document.done } });
+        if (Array.isArray(document.id)) {
+          // If we have a group of checkbox updates
+          const { isBulk, ...rest } = document as Types.HelpDesk.MultipleUpdateHot;
+          const documents: Array<any> = [];
+          // Turning { id: ['1', '2'], done: ['3', '4'] }
+          // into [ { id: '1', done: '3' }, { id: '2', done: '4' } ]
+          Object.entries(rest).forEach((row, index) => {
+            (row[1] as unknown as Array<string>).forEach((item, i) => {
+              if (index === 0) {
+                documents.push({ [row[0]]: item });
+              } else {
+                // @ts-ignore
+                (documents[i] as Array<{}>)[row[0]] = item;
+              }
+            });
+          });
+          // Preparing an array with simultaneous actions for MongoDB
+          const bulk = documents.map((item) => ({
+            updateOne: {
+              filter: { id: item.id },
+              update: { $set: { done: item.done } },
+            },
+          }));
+          await col.bulkWrite(bulk, { ordered: false });
+        } else {
+          // If we have only one checkbox updated
+          await col.updateOne({ id: document.id }, { $set: { done: document.done } });
+        }
       } else if ('description' in document) {
         // Help desk full update
         await col.updateOne(
@@ -190,8 +220,14 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     const form = formidable({});
     form.use(json);
     form.parse(req, async (err, fieldsMultiple) => {
-      const fieldsSingle = firstValues(form, fieldsMultiple);
-      const result = await crud(app as Types.Apps, action as Types.Actions, fieldsSingle);
+      // formidable parses fields and groups them if they have the same name
+      let result;
+      if (fieldsMultiple.isBulk) {
+        result = await crud(app as Types.Apps, action as Types.Actions, fieldsMultiple);
+      } else {
+        const fieldsSingle = firstValues(form, fieldsMultiple);
+        result = await crud(app as Types.Apps, action as Types.Actions, fieldsSingle);
+      }
 
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Cache-Control', 'no-cache');
