@@ -15,26 +15,39 @@ const applications = ['help-desk', 'like-a-trello'] as const;
 
 namespace Types {
   export type Apps = typeof applications[number];
-  export type Actions = 'fetch' | 'new' | 'update' | 'delete';
+  export type Actions = 'fetch' | 'new' | 'update' | 'delete' | 'batch';
   export type Url<T extends Actions, U extends Apps> = `/database/${U}/${T}`;
 
   type Basic = { id?: string };
   export namespace HelpDesk {
     /**
      * Help desk request variants:
+     * batch: {
+     *          operations: {
+     *              create: [{ ... }, { ... }],
+     *              update: [{ ... }, { ... }],
+     *              delete: [{ ... }, { ... }]
+     *          }
+     *        }
      * new: { id, done, name, description, date }
-     * update: { id, done } или { id[], done[], isBulk } или { id, name, description }
+     * update: { id, done } или { id, name, description }
      * delete: { id }
-     * get: {}
+     * fetch: {}
      */
-    export type MultipleUpdateHot = {
-      id: Array<string>, done: Array<boolean>, isBulk: Array<true>,
-    };
-    export type UpdateHot = { id: string, done: boolean } | MultipleUpdateHot;
+    type UpdateHot = { id: string, done: boolean };
     type UpdateFull = { id: string, name: string, description: string };
+    type CreatedOrUpdatedRow = UpdateFull & { date: string, done: boolean };
+    type DeletedRow = Required<Basic>;
+    type MultipleUpdate = {
+      operations: {
+        create: Array<CreatedOrUpdatedRow>,
+        update: Array<CreatedOrUpdatedRow>,
+        delete: Array<DeletedRow>,
+      }
+    };
     type Update = UpdateHot | UpdateFull;
     type New = UpdateHot & UpdateFull & { date: string };
-    export type HelpDesk = Basic | Update | New;
+    export type HelpDesk = Basic | Update | New | MultipleUpdate;
   }
   export namespace LikeATrello {
     /**
@@ -42,7 +55,7 @@ namespace Types {
      * new: { id, order, column, name, files }
      * update: { 0 | 1: { id, order, column } } или { id, name, files }
      * delete: { id }
-     * get: {}
+     * fetch: {}
      */
     type Column = 'todo' | 'doing' | 'done';
     type Order = { id: string, order: number, column: Column };
@@ -71,6 +84,49 @@ const switcher = async (
   // eslint-disable-next-line consistent-return
 ) => {
   switch (actions) {
+    case 'batch': {
+      if ('operations' in document) {
+        const bulk = Object.entries(document.operations)
+          .flatMap((operation) => operation[1]
+            .map((item) => {
+              switch (operation[0]) {
+                case 'create': {
+                  return {
+                    insertOne: {
+                      document: item,
+                    },
+                  };
+                }
+                case 'update': {
+                  if ('name' in item) {
+                    return {
+                      updateOne: {
+                        filter: { id: item.id },
+                        update: {
+                          $set: { name: item.name, description: item.description, done: item.done },
+                        },
+                      },
+                    };
+                  }
+                  throw Error(`No 'name' field in ${item}`);
+                }
+                case 'delete': {
+                  return {
+                    deleteOne: {
+                      filter: { id: item.id },
+                    },
+                  };
+                }
+                default: {
+                  throw Error(`Unknown operation ${operation[0]}`);
+                }
+              }
+            }));
+        await col.bulkWrite(bulk, { ordered: false });
+        return { status: 'Batch applied', data: document };
+      }
+      throw Error(`No 'operations' field in ${document}`);
+    }
     case 'new': {
       await col.insertOne(document);
       return { status: 'Added', data: '' };
@@ -78,34 +134,7 @@ const switcher = async (
     case 'update': {
       if ('done' in document) {
         // Help desk hot update
-        if (Array.isArray(document.id)) {
-          // If we have a group of checkbox updates
-          const { isBulk, ...rest } = document as Types.HelpDesk.MultipleUpdateHot;
-          const documents: Array<any> = [];
-          // Turning { id: ['1', '2'], done: ['3', '4'] }
-          // into [ { id: '1', done: '3' }, { id: '2', done: '4' } ]
-          Object.entries(rest).forEach((row, index) => {
-            (row[1] as unknown as Array<string>).forEach((item, i) => {
-              if (index === 0) {
-                documents.push({ [row[0]]: item });
-              } else {
-                // @ts-ignore
-                (documents[i] as Array<{}>)[row[0]] = item;
-              }
-            });
-          });
-          // Preparing an array with simultaneous actions for MongoDB
-          const bulk = documents.map((item) => ({
-            updateOne: {
-              filter: { id: item.id },
-              update: { $set: { done: item.done } },
-            },
-          }));
-          await col.bulkWrite(bulk, { ordered: false });
-        } else {
-          // If we have only one checkbox updated
-          await col.updateOne({ id: document.id }, { $set: { done: document.done } });
-        }
+        await col.updateOne({ id: document.id }, { $set: { done: document.done } });
       } else if ('description' in document) {
         // Help desk full update
         await col.updateOne(
@@ -140,9 +169,11 @@ const switcher = async (
       return {
         status: 'Fetched',
         // DB stores boolean values as strings. It is needed to get them back
+        // Upd. 12.12.24: MongoDB now stores boolean values as boolean.
+        // Fallback is left for backwards compatibility
         data: data.map((item) => {
           const { _id, ...rest } = item;
-          return { ...rest, done: (item.done === 'true') };
+          return { ...rest, done: (typeof item.done === 'boolean') ? item.done : (item.done === 'true') };
         }),
       };
     }
@@ -221,13 +252,8 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     form.use(json);
     form.parse(req, async (err, fieldsMultiple) => {
       // formidable parses fields and groups them if they have the same name
-      let result;
-      if (fieldsMultiple.isBulk) {
-        result = await crud(app as Types.Apps, action as Types.Actions, fieldsMultiple);
-      } else {
-        const fieldsSingle = firstValues(form, fieldsMultiple);
-        result = await crud(app as Types.Apps, action as Types.Actions, fieldsSingle);
-      }
+      const fieldsSingle = firstValues(form, fieldsMultiple);
+      const result = await crud(app as Types.Apps, action as Types.Actions, fieldsSingle);
 
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Cache-Control', 'no-cache');
