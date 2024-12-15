@@ -86,6 +86,8 @@ const switcher = async (
   switch (actions) {
     case 'batch': {
       if ('operations' in document) {
+        // MongoDB mutates document adding _id property
+        const documentCopy = structuredClone(document);
         const bulk = Object.entries(document.operations)
           .flatMap((operation) => operation[1]
             .map((item) => {
@@ -123,7 +125,7 @@ const switcher = async (
               }
             }));
         await col.bulkWrite(bulk, { ordered: false });
-        return { status: 'Batch applied', data: document };
+        return { status: 'Batch applied', data: documentCopy };
       }
       throw Error(`No 'operations' field in ${document}`);
     }
