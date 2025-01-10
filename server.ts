@@ -225,6 +225,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   if (req.headers.origin && applications
     .flatMap((item) => ([
       `https://${item}-solarlime.vercel.app`,
+      `https://${item}-legacy.solarlime.dev`,
       `https://${item}.solarlime.dev`,
     ]))
     .find((item) => item === req.headers.origin)) {
