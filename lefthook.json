@@ -1,0 +1,14 @@
+{
+  "pre-push": {
+    "jobs": []
+  },
+  "pre-commit": {
+    "jobs": [
+      {
+        "name": "Run Biome",
+        "run": "yarn exec biome check --write {staged_files}",
+        "stage_fixed": true
+      }
+    ]
+  }
+}

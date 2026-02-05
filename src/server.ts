@@ -1,20 +1,17 @@
-import { createServer, IncomingMessage, ServerResponse } from 'http';
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import dotenv from 'dotenv';
 // 24.06.23: types for formidable are not fully compatible with formidable@v3.
 // TypeScript throws an error about json & firstValues. Ignoring it.
-// @ts-ignore
+// @ts-expect-error
 import formidable, { json } from 'formidable';
-// @ts-ignore
-// eslint-disable-next-line import/extensions
+// @ts-expect-error
 import { firstValues } from 'formidable/src/helpers/firstValues.js';
-import dotenv from 'dotenv';
-import {
-  Collection, Db, Document, MongoClient,
-} from 'mongodb';
+import { type Collection, type Db, type Document, MongoClient } from 'mongodb';
 
 const applications = ['help-desk', 'like-a-trello'] as const;
 
 namespace Types {
-  export type Apps = typeof applications[number];
+  export type Apps = (typeof applications)[number];
   export type Actions = 'fetch' | 'new' | 'update' | 'delete' | 'batch';
   export type Url<T extends Actions, U extends Apps> = `/database/${U}/${T}`;
 
@@ -34,16 +31,16 @@ namespace Types {
      * delete: { id }
      * fetch: {}
      */
-    type UpdateHot = { id: string, done: boolean };
-    type UpdateFull = { id: string, name: string, description: string };
-    type CreatedOrUpdatedRow = UpdateFull & { date: string, done: boolean };
+    type UpdateHot = { id: string; done: boolean };
+    type UpdateFull = { id: string; name: string; description: string };
+    type CreatedOrUpdatedRow = UpdateFull & { date: string; done: boolean };
     type DeletedRow = Required<Basic>;
     type MultipleUpdate = {
       operations: {
-        create: Array<CreatedOrUpdatedRow>,
-        update: Array<CreatedOrUpdatedRow>,
-        delete: Array<DeletedRow>,
-      }
+        create: Array<CreatedOrUpdatedRow>;
+        update: Array<CreatedOrUpdatedRow>;
+        delete: Array<DeletedRow>;
+      };
     };
     type Update = UpdateHot | UpdateFull;
     type New = UpdateHot & UpdateFull & { date: string };
@@ -58,14 +55,14 @@ namespace Types {
      * fetch: {}
      */
     type Column = 'todo' | 'doing' | 'done';
-    type Order = { id: string, order: number, column: Column };
-    type File = { name: string, type: string, lastModified: number, link: string };
+    type Order = { id: string; order: number; column: Column };
+    type File = { name: string; type: string; lastModified: number; link: string };
 
     type Move = { move: Array<Order> };
-    type Update = { id: string, name: string, files: Array<File> | File };
+    type Update = { id: string; name: string; files: Array<File> | File };
     interface New extends Order {
-      name: string,
-      files: Array<File> | File,
+      name: string;
+      files: Array<File> | File;
     }
     export type LikeATrello = Basic | Move | Update | New;
   }
@@ -81,49 +78,48 @@ const switcher = async (
   col: Collection,
   actions: Types.Actions,
   document: Types.HelpDesk.HelpDesk | Types.LikeATrello.LikeATrello,
-  // eslint-disable-next-line consistent-return
 ) => {
   switch (actions) {
     case 'batch': {
       if ('operations' in document) {
         // MongoDB mutates document adding _id property
         const documentCopy = structuredClone(document);
-        const bulk = Object.entries(document.operations)
-          .flatMap((operation) => operation[1]
-            .map((item) => {
-              switch (operation[0]) {
-                case 'create': {
-                  return {
-                    insertOne: {
-                      document: item,
-                    },
-                  };
-                }
-                case 'update': {
-                  if ('name' in item) {
-                    return {
-                      updateOne: {
-                        filter: { id: item.id },
-                        update: {
-                          $set: { name: item.name, description: item.description, done: item.done },
-                        },
-                      },
-                    };
-                  }
-                  throw Error(`No 'name' field in ${item}`);
-                }
-                case 'delete': {
-                  return {
-                    deleteOne: {
-                      filter: { id: item.id },
-                    },
-                  };
-                }
-                default: {
-                  throw Error(`Unknown operation ${operation[0]}`);
-                }
+        const bulk = Object.entries(document.operations).flatMap((operation) =>
+          operation[1].map((item) => {
+            switch (operation[0]) {
+              case 'create': {
+                return {
+                  insertOne: {
+                    document: item,
+                  },
+                };
               }
-            }));
+              case 'update': {
+                if ('name' in item) {
+                  return {
+                    updateOne: {
+                      filter: { id: item.id },
+                      update: {
+                        $set: { name: item.name, description: item.description, done: item.done },
+                      },
+                    },
+                  };
+                }
+                throw Error(`No 'name' field in ${item}`);
+              }
+              case 'delete': {
+                return {
+                  deleteOne: {
+                    filter: { id: item.id },
+                  },
+                };
+              }
+              default: {
+                throw Error(`Unknown operation ${operation[0]}`);
+              }
+            }
+          }),
+        );
         await col.bulkWrite(bulk, { ordered: false });
         return { status: 'Batch applied', data: documentCopy };
       }
@@ -151,10 +147,11 @@ const switcher = async (
         );
       } else if ('move' in document) {
         // Like-a-Trello order/column update
-        await Promise.all(document.move.map(async (doc) => col.updateOne(
-          { id: doc.id },
-          { $set: { order: doc.order, column: doc.column } },
-        )));
+        await Promise.all(
+          document.move.map(async (doc) =>
+            col.updateOne({ id: doc.id }, { $set: { order: doc.order, column: doc.column } }),
+          ),
+        );
       }
       return { status: 'Updated', data: '' };
     }
@@ -166,7 +163,6 @@ const switcher = async (
       break;
     }
     case 'fetch': {
-      // eslint-disable-next-line no-case-declarations
       const data: Array<Document> = await col.find().toArray();
       return {
         status: 'Fetched',
@@ -175,7 +171,10 @@ const switcher = async (
         // Fallback is left for backwards compatibility
         data: data.map((item) => {
           const { _id, ...rest } = item;
-          return { ...rest, done: (typeof item.done === 'boolean') ? item.done : (item.done === 'true') };
+          return {
+            ...rest,
+            done: typeof item.done === 'boolean' ? item.done : item.done === 'true',
+          };
         }),
       };
     }
@@ -222,13 +221,16 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   const [, app, action] = (req.url as Types.Url<Types.Actions, Types.Apps>).slice(1).split('/');
 
   // Setting Access-Control-Allow-Origin depending on an origin header
-  if (req.headers.origin && applications
-    .flatMap((item) => ([
-      `https://${item}-solarlime.vercel.app`,
-      `https://${item}-legacy.solarlime.dev`,
-      `https://${item}.solarlime.dev`,
-    ]))
-    .find((item) => item === req.headers.origin)) {
+  if (
+    req.headers.origin
+    && applications
+      .flatMap((item) => [
+        `https://${item}-solarlime.vercel.app`,
+        `https://${item}-legacy.solarlime.dev`,
+        `https://${item}.solarlime.dev`,
+      ])
+      .find((item) => item === req.headers.origin)
+  ) {
     res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
   } else if (req.headers.origin?.includes('http://localhost:')) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -253,7 +255,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   if (['get', 'post', 'put', 'delete'].includes(method)) {
     const form = formidable({});
     form.use(json);
-    form.parse(req, async (err, fieldsMultiple) => {
+    form.parse(req, async (_err, fieldsMultiple) => {
       // formidable parses fields and groups them if they have the same name
       const fieldsSingle = firstValues(form, fieldsMultiple);
       const result = await crud(app as Types.Apps, action as Types.Actions, fieldsSingle);
@@ -266,4 +268,6 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   }
 });
 
-server.listen(parseInt(port, 10), () => { console.log('Server is listening on %s', port); });
+server.listen(parseInt(port, 10), () => {
+  console.log('Server is listening on %s', port);
+});

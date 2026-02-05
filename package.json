@@ -6,8 +6,8 @@
   "scripts": {
     "start": "yarn run build && node dist/server.js",
     "start:docker": "yarn run build:docker && docker-compose up crud-mongo-server",
-    "lint": "yarn run eslint .",
-    "build": "yarn run lint && node esbuild.config.mjs",
+    "lint": "yarn run biome check --write",
+    "build": "yarn run lint && tsc && node esbuild.config.mjs",
     "build:docker": "yarn run lint && docker-compose build crud-mongo-server",
     "watch": "tsx watch src/server.ts"
   },
@@ -16,16 +16,11 @@
   "license": "ISC",
   "type": "module",
   "devDependencies": {
-    "@types/eslint": "^8",
+    "@biomejs/biome": "2.3.14",
     "@types/formidable": "^3.4.5",
     "@types/node": "^20.12.12",
-    "@typescript-eslint/eslint-plugin": "^7.9.0",
-    "@typescript-eslint/parser": "^7.9.0",
     "esbuild": "^0.27.2",
-    "eslint": "^8.57.0",
-    "eslint-config-airbnb-base": "^15.0.0",
-    "eslint-config-airbnb-typescript": "^18.0.0",
-    "eslint-plugin-import": "^2.29.1",
+    "lefthook": "^2.0.2",
     "tsx": "^4.19.3",
     "typescript": "~5.4.5"
   },
