@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import type { Socket } from 'node:net';
 import dotenv from 'dotenv';
 // 24.06.23: types for formidable are not fully compatible with formidable@v3.
 // TypeScript throws an error about json & firstValues. Ignoring it.
@@ -7,6 +8,7 @@ import formidable, { json } from 'formidable';
 // @ts-expect-error
 import { firstValues } from 'formidable/src/helpers/firstValues.js';
 import { type Collection, type Db, type Document, MongoClient } from 'mongodb';
+import handleShutdown from './handleShutdown';
 
 const applications = ['help-desk', 'like-a-trello'] as const;
 
@@ -73,6 +75,8 @@ dotenv.config();
 const port = process.env.PORT!;
 const mongoUrl = process.env.MONGO_URL!;
 const client = new MongoClient(mongoUrl);
+await client.connect();
+console.log('Connected correctly to MongoDB');
 
 const switcher = async (
   col: Collection,
@@ -197,8 +201,6 @@ const crud = async (
   document: Types.HelpDesk.HelpDesk | Types.LikeATrello.LikeATrello,
 ) => {
   try {
-    await client.connect();
-    console.log('Connected correctly to server');
     const db: Db = client.db(dbName);
 
     // Use the collection "items"
@@ -211,8 +213,6 @@ const crud = async (
       status: 'Error',
       data: (err as Error).message,
     };
-  } finally {
-    await client.close();
   }
 };
 
@@ -266,6 +266,35 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       res.end(JSON.stringify(result));
     });
   }
+});
+
+const sockets = new Set<Socket>();
+
+server.on('connection', (socket) => {
+  sockets.add(socket);
+  socket.on('close', () => sockets.delete(socket));
+});
+
+['SIGTERM', 'SIGINT'].forEach((sig) => {
+  process.on(sig, (signal: string) =>
+    handleShutdown(
+      signal,
+      async () => {
+        server.close(() => console.log('Server stopped'));
+        // Closing existing connections
+        setTimeout(() => {
+          sockets.forEach((s) => {
+            s.destroy();
+          });
+        }, 5000);
+        await client.close();
+        console.log('MongoDB connection closed');
+      },
+      (err: Error) => {
+        console.error('Error:', err);
+      },
+    ),
+  );
 });
 
 server.listen(parseInt(port, 10), () => {
