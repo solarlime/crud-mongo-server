@@ -72,8 +72,14 @@ namespace Types {
 
 dotenv.config();
 
-const port = process.env.PORT!;
-const mongoUrl = process.env.MONGO_URL!;
+const port = process.env.PORT;
+const mongoUrl = process.env.MONGO_URL;
+
+if (!port || !mongoUrl) {
+  console.error('Port or MongoURL are not defined');
+  process.exit(1);
+}
+
 const client = new MongoClient(mongoUrl);
 await client.connect();
 console.log('Connected correctly to MongoDB');
