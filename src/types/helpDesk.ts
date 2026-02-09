@@ -1,4 +1,4 @@
-import type { Basic } from './basic';
+import type { Basic } from './generic';
 
 /**
  * Help desk request variants:
@@ -20,12 +20,10 @@ type CreatedOrUpdatedRow = Basic & {
 };
 type DeletedRow = Basic;
 
-type MultipleUpdate = {
+export type MultipleUpdate = {
   operations: {
     create: Array<CreatedOrUpdatedRow>;
     update: Array<CreatedOrUpdatedRow>;
     delete: Array<DeletedRow>;
   };
 };
-
-export type HelpDesk = MultipleUpdate;

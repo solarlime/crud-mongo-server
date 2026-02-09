@@ -1,4 +1,4 @@
-import type { Basic } from './basic';
+import type { Basic } from './generic';
 
 /**
  * Like a Trello request variants:
@@ -9,15 +9,13 @@ import type { Basic } from './basic';
  */
 
 type Column = 'todo' | 'doing' | 'done';
-type Delete = Basic;
-type Order = { id: string; order: number; column: Column };
+type Order = Basic & { order: number; column: Column };
 type File = { name: string; type: string; lastModified: number; link: string };
-type Move = { move: Array<Order> };
-type Update = { id: string; name: string; files: Array<File> | File };
+type UpdateMove = { move: Array<Order> };
+type UpdateContent = Basic & { name: string; files: Array<File> | File };
+export type Update = UpdateMove | UpdateContent;
 
-interface New extends Order {
+export interface New extends Order {
   name: string;
   files: Array<File> | File;
 }
-
-export type LikeATrello = Delete | Move | Update | New;

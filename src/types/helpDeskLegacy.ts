@@ -1,4 +1,4 @@
-import type { Basic } from './basic';
+import type { Basic } from './generic';
 
 /**
  * Help desk Legacy request variants:
@@ -8,10 +8,8 @@ import type { Basic } from './basic';
  * fetch: {}
  */
 
-type Delete = Basic;
 type UpdateHot = Basic & { done: boolean };
 type UpdateFull = Basic & { name: string; description: string };
-type Update = UpdateHot | UpdateFull;
-type New = UpdateHot & UpdateFull & { date: string };
+export type Update = UpdateHot | UpdateFull;
 
-export type HelpDeskLegacy = Delete | Update | New;
+export type New = UpdateHot & UpdateFull & { date: string };
