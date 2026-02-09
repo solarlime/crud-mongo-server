@@ -1,7 +1,7 @@
 import type { Collection, Document } from 'mongodb';
 import type { Action, Delete } from '../types/generic';
-import type { New as HelpDeskLegacyNew } from '../types/helpDeskLegacy';
-import type { New as LikeATrelloNew } from '../types/likeATrello';
+import type { HelpDeskLegacyNew } from '../types/helpDeskLegacy';
+import type { LikeATrelloNew } from '../types/likeATrello';
 
 /**
  * Fetches all documents from the collection

@@ -12,6 +12,7 @@ import { firstValues } from 'formidable/src/helpers/firstValues.js';
 import type { MongoClient } from 'mongodb';
 import performCrudOperation from './performCrudOperation';
 import { type Action, type App, applications, type Url } from './types/generic';
+import { validateRequest } from './validation/validateRequest';
 
 export default function createServer(client: MongoClient) {
   return createNodeHttpServer(async (req: IncomingMessage, res: ServerResponse) => {
@@ -42,7 +43,7 @@ export default function createServer(client: MongoClient) {
     res.setHeader('Access-Control-Allow-Headers', 'Cache-Control, Content-Type');
     res.setHeader('Access-Control-Max-Age', 2592000);
 
-    const method = req.method!.toLowerCase();
+    const method = req.method?.toLowerCase();
 
     if (method === 'options') {
       res.writeHead(204);
@@ -50,12 +51,24 @@ export default function createServer(client: MongoClient) {
       return;
     }
 
-    if (['get', 'post', 'put', 'delete'].includes(method)) {
+    if (method && ['get', 'post', 'put', 'delete'].includes(method)) {
       const form = formidable({});
       form.use(json);
       form.parse(req, async (_err, fieldsMultiple) => {
         // formidable parses fields and groups them if they have the same name
         const fieldsSingle = firstValues(form, fieldsMultiple);
+
+        // Validate request data
+        const validationResult = validateRequest(app as App, action as Action, fieldsSingle);
+
+        if (validationResult !== true) {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Cache-Control', 'no-cache');
+          res.writeHead(400);
+          res.end(JSON.stringify(validationResult));
+          return;
+        }
+
         const result = await performCrudOperation(
           client,
           app as App,

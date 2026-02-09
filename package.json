@@ -27,7 +27,8 @@
   "dependencies": {
     "dotenv": "^16.4.5",
     "formidable": "^3.5.4",
-    "mongodb": "^6.6.2"
+    "mongodb": "^6.6.2",
+    "valibot": "^1.2.0"
   },
   "engines": {
     "node": ">=20.10.0"

@@ -1,15 +1,10 @@
-import type { Basic } from './generic';
+import type { InferOutput } from 'valibot';
+import type {
+  helpDeskLegacyNewSchema,
+  helpDeskLegacyUpdateFullSchema,
+  helpDeskLegacyUpdateHotSchema,
+} from '../validation/schemas';
 
-/**
- * Help desk Legacy request variants:
- * new: { id, done, name, description, date }
- * update: { id, done } или { id, name, description }
- * delete: { id }
- * fetch: {}
- */
-
-type UpdateHot = Basic & { done: boolean };
-type UpdateFull = Basic & { name: string; description: string };
-export type Update = UpdateHot | UpdateFull;
-
-export type New = UpdateHot & UpdateFull & { date: string };
+export type HelpDeskLegacyUpdateHot = InferOutput<typeof helpDeskLegacyUpdateHotSchema>;
+export type HelpDeskLegacyUpdateFull = InferOutput<typeof helpDeskLegacyUpdateFullSchema>;
+export type HelpDeskLegacyNew = InferOutput<typeof helpDeskLegacyNewSchema>;

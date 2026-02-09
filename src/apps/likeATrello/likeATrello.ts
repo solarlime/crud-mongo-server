@@ -1,6 +1,6 @@
 import type { Collection } from 'mongodb';
 import type { Action } from '../../types/generic';
-import type { Update as LikeATrelloUpdate } from '../../types/likeATrello';
+import type { LikeATrelloUpdateContent, LikeATrelloUpdateMove } from '../../types/likeATrello';
 
 /**
  * Deals with Like-a-Trello's specific requests
@@ -10,7 +10,11 @@ import type { Update as LikeATrelloUpdate } from '../../types/likeATrello';
  * @param document - The document to perform the action on
  * @return A promise that resolves to an object representing the status and data of the CRUD operation
  */
-async function performAction(col: Collection, action: Action, document: LikeATrelloUpdate) {
+async function performAction(
+  col: Collection,
+  action: Action,
+  document: LikeATrelloUpdateContent | LikeATrelloUpdateMove,
+) {
   switch (action) {
     case 'update': {
       if ('move' in document) {

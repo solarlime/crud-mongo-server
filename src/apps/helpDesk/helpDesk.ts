@@ -1,6 +1,6 @@
 import type { Collection } from 'mongodb';
 import type { Action } from '../../types/generic';
-import type { MultipleUpdate as HelpDeskMultipleUpdate } from '../../types/helpDesk';
+import type { HelpDeskMultipleUpdate } from '../../types/helpDesk';
 
 /**
  * Deals with Help-Desk's specific requests

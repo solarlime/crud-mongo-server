@@ -4,12 +4,17 @@ import { performAction as performHelpDeskAction } from './apps/helpDesk/helpDesk
 import { performAction as performHelpDeskLegacyAction } from './apps/helpDesk/helpDeskLegacy';
 import { performAction as performLikeATrelloAction } from './apps/likeATrello/likeATrello';
 import type { Action, App, Delete } from './types/generic';
-import type { MultipleUpdate as HelpDeskMultipleUpdate } from './types/helpDesk';
+import type { HelpDeskMultipleUpdate } from './types/helpDesk';
 import type {
-  New as HelpDeskLegacyNew,
-  Update as HelpDeskLegacyUpdate,
+  HelpDeskLegacyNew,
+  HelpDeskLegacyUpdateFull,
+  HelpDeskLegacyUpdateHot,
 } from './types/helpDeskLegacy';
-import type { New as LikeATrelloNew, Update as LikeATrelloUpdate } from './types/likeATrello';
+import type {
+  LikeATrelloNew,
+  LikeATrelloUpdateContent,
+  LikeATrelloUpdateMove,
+} from './types/likeATrello';
 
 /**
  * A function which deals with MongoDB: creates documents, updates them,
@@ -27,11 +32,13 @@ export default async function performCrudOperation(
   action: Action,
   document:
     | HelpDeskMultipleUpdate
-    | HelpDeskLegacyUpdate
+    | HelpDeskLegacyUpdateHot
+    | HelpDeskLegacyUpdateFull
     | HelpDeskLegacyNew
     | Delete
-    | LikeATrelloNew
-    | LikeATrelloUpdate,
+    | LikeATrelloUpdateMove
+    | LikeATrelloUpdateContent
+    | LikeATrelloNew,
 ) {
   try {
     const db: Db = client.db(dbName);
@@ -50,7 +57,11 @@ export default async function performCrudOperation(
           case 'delete':
             return await performGenericAction(col, action, document as HelpDeskLegacyNew | Delete);
           case 'update':
-            return await performHelpDeskLegacyAction(col, action, document as HelpDeskLegacyUpdate);
+            return await performHelpDeskLegacyAction(
+              col,
+              action,
+              document as HelpDeskLegacyUpdateFull | HelpDeskLegacyUpdateHot,
+            );
           default:
             throw Error(`Action ${action} is not found`);
         }
@@ -63,7 +74,11 @@ export default async function performCrudOperation(
           case 'delete':
             return await performGenericAction(col, action, document as LikeATrelloNew | Delete);
           case 'update':
-            return await performLikeATrelloAction(col, action, document as LikeATrelloUpdate);
+            return await performLikeATrelloAction(
+              col,
+              action,
+              document as LikeATrelloUpdateContent | LikeATrelloUpdateMove,
+            );
         }
       }
     }

@@ -1,6 +1,6 @@
 import type { Collection } from 'mongodb';
 import type { Action } from '../../types/generic';
-import type { Update as HelpDeskLegacyUpdate } from '../../types/helpDeskLegacy';
+import type { HelpDeskLegacyUpdateFull, HelpDeskLegacyUpdateHot } from '../../types/helpDeskLegacy';
 
 /**
  * Deals with Help-Desk's (legacy) specific requests
@@ -10,7 +10,11 @@ import type { Update as HelpDeskLegacyUpdate } from '../../types/helpDeskLegacy'
  * @param document - The document to perform the action on
  * @return A promise that resolves to an object representing the status and data of the CRUD operation
  */
-async function performAction(col: Collection, action: Action, document: HelpDeskLegacyUpdate) {
+async function performAction(
+  col: Collection,
+  action: Action,
+  document: HelpDeskLegacyUpdateHot | HelpDeskLegacyUpdateFull,
+) {
   switch (action) {
     case 'update': {
       if ('done' in document) {

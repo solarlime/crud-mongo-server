@@ -1,29 +1,4 @@
-import type { Basic } from './generic';
+import type { InferOutput } from 'valibot';
+import type { helpDeskMultipleUpdateSchema } from '../validation/schemas';
 
-/**
- * Help desk request variants:
- * batch: {
- *          operations: {
- *              create: [{ ... }, { ... }],
- *              update: [{ ... }, { ... }],
- *              delete: [{ ... }, { ... }]
- *          }
- *        }
- * fetch: {}
- */
-
-type CreatedOrUpdatedRow = Basic & {
-  name: string;
-  description: string;
-  date: string;
-  done: boolean;
-};
-type DeletedRow = Basic;
-
-export type MultipleUpdate = {
-  operations: {
-    create: Array<CreatedOrUpdatedRow>;
-    update: Array<CreatedOrUpdatedRow>;
-    delete: Array<DeletedRow>;
-  };
-};
+export type HelpDeskMultipleUpdate = InferOutput<typeof helpDeskMultipleUpdateSchema>;
