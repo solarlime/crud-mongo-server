@@ -16,7 +16,6 @@ import { validateRequest } from './validation/validateRequest';
 
 export default function createServer(client: MongoClient) {
   return createNodeHttpServer(async (req: IncomingMessage, res: ServerResponse) => {
-    console.log('Request to %s detected', req.url);
     const [, app, action] = (req.url as Url<Action, App>).slice(1).split('/');
 
     // Setting Access-Control-Allow-Origin depending on an origin header
@@ -52,6 +51,7 @@ export default function createServer(client: MongoClient) {
     }
 
     if (method && ['get', 'post', 'put', 'delete'].includes(method)) {
+      console.log('Request to %s detected', req.url);
       const form = formidable({});
       form.use(json);
       form.parse(req, async (_err, fieldsMultiple) => {

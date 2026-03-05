@@ -1,5 +1,6 @@
 import type { Collection, Db, MongoClient } from 'mongodb';
-import { fetchHandler, performGenericAction } from './apps/generic';
+import { performGenericAction } from './apps/generic';
+import { fetchHandler } from './apps/helpDesk/generic';
 import { performAction as performHelpDeskAction } from './apps/helpDesk/helpDesk';
 import { performAction as performHelpDeskLegacyAction } from './apps/helpDesk/helpDeskLegacy';
 import { performAction as performLikeATrelloAction } from './apps/likeATrello/likeATrello';
@@ -38,7 +39,8 @@ export default async function performCrudOperation(
     | Delete
     | LikeATrelloUpdateMove
     | LikeATrelloUpdateContent
-    | LikeATrelloNew,
+    | LikeATrelloNew
+    | object, // for 'fetch' requests
 ) {
   try {
     const db: Db = client.db(dbName);
@@ -52,12 +54,12 @@ export default async function performCrudOperation(
           case 'fetch':
             return fetchHandler(col);
           case 'batch':
-            return await performHelpDeskAction(col, action, document as HelpDeskMultipleUpdate);
+            return performHelpDeskAction(col, action, document as HelpDeskMultipleUpdate);
           case 'new':
           case 'delete':
-            return await performGenericAction(col, action, document as HelpDeskLegacyNew | Delete);
+            return performGenericAction(col, action, document as HelpDeskLegacyNew | Delete);
           case 'update':
-            return await performHelpDeskLegacyAction(
+            return performHelpDeskLegacyAction(
               col,
               action,
               document as HelpDeskLegacyUpdateFull | HelpDeskLegacyUpdateHot,
@@ -68,11 +70,11 @@ export default async function performCrudOperation(
       }
       case 'like-a-trello': {
         switch (action) {
-          case 'fetch':
-            return fetchHandler(col);
           case 'new':
           case 'delete':
             return await performGenericAction(col, action, document as LikeATrelloNew | Delete);
+          case 'fetch':
+            return await performLikeATrelloAction(col, action);
           case 'update':
             return await performLikeATrelloAction(
               col,

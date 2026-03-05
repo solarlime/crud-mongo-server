@@ -1,29 +1,7 @@
-import type { Collection, Document } from 'mongodb';
+import type { Collection } from 'mongodb';
 import type { Action, Delete } from '../types/generic';
 import type { HelpDeskLegacyNew } from '../types/helpDeskLegacy';
 import type { LikeATrelloNew } from '../types/likeATrello';
-
-/**
- * Fetches all documents from the collection
- * @param col - The collection to fetch documents from
- * @return An object containing the status and data of the fetch operation
- */
-const fetchHandler = async (col: Collection) => {
-  const data: Array<Document> = await col.find().toArray();
-  return {
-    status: 'Fetched',
-    // DB stores boolean values as strings. It is needed to get them back
-    // Upd. 12.12.24: MongoDB now stores boolean values as boolean.
-    // Fallback is left for backwards compatibility
-    data: data.map((item) => {
-      const { _id, ...rest } = item;
-      return {
-        ...rest,
-        done: typeof item.done === 'boolean' ? item.done : item.done === 'true',
-      };
-    }),
-  };
-};
 
 /**
  * Performs a generic action on the collection
@@ -51,4 +29,4 @@ const performGenericAction = async (
   }
 };
 
-export { fetchHandler, performGenericAction };
+export { performGenericAction };

@@ -1,6 +1,10 @@
-import type { Collection } from 'mongodb';
+import type { Collection, WithId } from 'mongodb';
 import type { Action } from '../../types/generic';
-import type { LikeATrelloUpdateContent, LikeATrelloUpdateMove } from '../../types/likeATrello';
+import type {
+  LikeATrelloNew,
+  LikeATrelloUpdateContent,
+  LikeATrelloUpdateMove,
+} from '../../types/likeATrello';
 
 /**
  * Deals with Like-a-Trello's specific requests
@@ -13,25 +17,38 @@ import type { LikeATrelloUpdateContent, LikeATrelloUpdateMove } from '../../type
 async function performAction(
   col: Collection,
   action: Action,
-  document: LikeATrelloUpdateContent | LikeATrelloUpdateMove,
+  document?: LikeATrelloUpdateContent | LikeATrelloUpdateMove,
 ) {
   switch (action) {
+    case 'fetch': {
+      const data = (await col.find().toArray()) as Array<WithId<LikeATrelloNew>>;
+      return {
+        status: 'Fetched',
+        data: data.map((item) => {
+          const { _id, ...rest } = item;
+          return rest as LikeATrelloNew;
+        }),
+      };
+    }
     case 'update': {
-      if ('move' in document) {
-        // Like-a-Trello order/column update
-        await Promise.all(
-          document.move.map(async (doc) =>
-            col.updateOne({ id: doc.id }, { $set: { order: doc.order, column: doc.column } }),
-          ),
-        );
-      } else {
-        // Like-a-Trello content update
-        await col.updateOne(
-          { id: document.id },
-          { $set: { name: document.name, files: document.files } },
-        );
+      if (document) {
+        if ('move' in document) {
+          // Like-a-Trello order/column update
+          await Promise.all(
+            document.move.map(async (doc) =>
+              col.updateOne({ id: doc.id }, { $set: { order: doc.order, column: doc.column } }),
+            ),
+          );
+        } else {
+          // Like-a-Trello content update
+          await col.updateOne(
+            { id: document.id },
+            { $set: { name: document.name, files: document.files } },
+          );
+        }
+        return { status: 'Updated', data: '' };
       }
-      return { status: 'Updated', data: '' };
+      throw Error(`Document is not provided`);
     }
     default:
       throw Error(`Action ${action} is not found`);
