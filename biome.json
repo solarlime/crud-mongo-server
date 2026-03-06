@@ -21,6 +21,21 @@
       "recommended": true
     }
   },
+  "overrides": [
+    {
+      "includes": ["test/**", "**/*.test.ts", "**/*.spec.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "off"
+          },
+          "style": {
+            "noNonNullAssertion": "off"
+          }
+        }
+      }
+    }
+  ],
   "javascript": {
     "formatter": {
       "quoteStyle": "single",

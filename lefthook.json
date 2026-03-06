@@ -1,6 +1,11 @@
 {
   "pre-push": {
-    "jobs": []
+    "jobs": [
+      {
+        "name": "Run tests",
+        "run": "yarn run test"
+      }
+    ]
   },
   "pre-commit": {
     "jobs": [

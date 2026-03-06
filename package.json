@@ -9,7 +9,9 @@
     "lint": "yarn run biome check --write",
     "build": "yarn run lint && tsc && node esbuild.config.mjs",
     "build:docker": "yarn run lint && docker-compose build crud-mongo-server",
-    "watch": "tsx watch src/server.ts"
+    "watch": "tsx watch src/server.ts",
+    "test": "tsx --test test/**/*.test.ts",
+    "test:watch": "tsx --test --watch test/**/*.test.ts"
   },
   "keywords": [],
   "author": "",

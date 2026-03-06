@@ -30,7 +30,13 @@ jobs:
       - name: Install dependencies
         run: yarn install --immutable
 
-      - name: Linting & Building
+      - name: Linting
+        run: yarn run lint
+
+      - name: Testing
+        run: yarn run test
+
+      - name: Building
         run: yarn run build
 
       - name: Make directory if there isn't
